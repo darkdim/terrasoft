@@ -1,0 +1,7 @@
+name = Terrasoft test
+description = Module implements the test task for Terrasoft
+core = 7.x
+package = Terrasoft
+php = 5.4
+dependencies[] = masked_input
+dependencies[] = countries

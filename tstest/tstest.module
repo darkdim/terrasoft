@@ -1,0 +1,171 @@
+<?php
+/**
+ * @file
+ * Test module for Terrasoft.
+ */
+
+/**
+ * Implements hook_help().
+ */
+function tstest_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#tstest':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('Test registration form is used as a test task of Terrasoft.') . '</p>';
+      $output .= '<h3>' . t('Uses') . '</h3>';
+      $output .= '<dl>';
+      $output .= '<dt>' . t('Terrasoft Register form allows you to register and send contact information via email. See <a href="@form-register">Form register</a>', ['@form-register' => url('terrasoft/email_tstest')]) . '</dt>';
+      $output .= '<dd>' . t('') . '</dd>';
+
+      return $output;
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function tstest_menu() {
+  $items['terrasoft/email_tstest'] = [
+    'title' => 'Register for a 14-day Free Trial',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tstest_form'),
+    'access arguments' => array('access content'),
+  ];
+
+  return $items;
+}
+
+/**
+ * Implements hook_form().
+ */
+function tstest_form() {
+
+  $form['domain'] = [
+    '#type' => 'textfield',
+    '#title' => t('Domain'),
+    '#maxlength' => 128,
+    '#required' => TRUE,
+    '#field_suffix' => t('.bpmonline.com')
+  ];
+  $form['login'] = [
+    '#type' => 'textfield',
+    '#title' => t('Login'),
+    '#maxlength' => 128,
+    '#required' => TRUE,
+  ];
+  $form['country'] = [
+    '#type' => 'select',
+    '#title' => t('Country'),
+    '#options' => countries_get_countries('name', ['enabled' => COUNTRIES_ENABLED]),
+    '#required' => TRUE,
+  ];
+  $form['city'] = [
+    '#type' => 'textfield',
+    '#title' => t('City'),
+    '#maxlength' => 128,
+    '#required' => FALSE,
+  ];
+  $form['code'] = [
+    '#type' => 'masked_input',
+    '#mask' => '+38(999)',
+    '#placeholder' => '_',
+    '#title' => t('Code'),
+    '#maxlength' => 10,
+    '#required' => TRUE,
+  ];
+  $form['phone'] = [
+    '#type' => 'masked_input',
+    '#mask' => '999-9999',
+    '#placeholder' => '_',
+    '#title' => t('Phone'),
+    '#maxlength' => 15,
+    '#required' => TRUE,
+  ];
+  $form['actions'] = [
+    '#type' => 'actions',
+  ];
+  $form['actions']['submit'] = [
+    '#type' => 'submit',
+    '#value' => t('Register'),
+  ];
+
+  return $form;
+}
+
+/**
+ * Form validation logic.
+ */
+function tstest_form_validate($form, &$form_state) {
+  $domain = $form_state['values']['domain'];
+  $query = db_select('tstest_register', 'tr')->condition('tr.domain', $domain, '=');
+  if ($query->countQuery()->execute()->fetchField()) {
+    form_set_error('domain', t('A domain with %domain name already exists.', ['%domain' => $domain]));
+  }
+}
+
+/**
+ * Form submission logic.
+ */
+function tstest_form_submit($form, &$form_state) {
+  $values = $form_state['values'];
+  db_insert('tstest_register')
+    ->fields([
+      'domain' => $values['domain'],
+      'login' => $values['login'],
+      'country' => $values['country'],
+      'city' => $values['city'],
+      'code' => $values['code'],
+      'phone' => $values['phone'],
+    ])
+    ->execute();
+  drupal_set_message(t('The register form item has been created.'));
+  watchdog('tstest', 'Register form item %domain was added.', ['%domain' => $form_state['values']['domain']], WATCHDOG_NOTICE, l(t('go to form'), 'terrasoft/email_tstest'));
+  // Send register form email.
+  tstest_mail_send($form_state['values']);
+}
+
+/**
+ * Implements hook_mail().
+ */
+function tstest_mail($key, &$message, $params) {
+  $options = [
+    'langcode' => $message['language']->language,
+  ];
+  switch ($key) {
+    // Send a simple message from the register form.
+    case 'register_form':
+      $message['subject'] = t('E-mail sent from @site-name', array('@site-name' => variable_get('site_name', 'Drupal')), $options);
+      $message['body'][] = t('@login, You have registered with such credentials: ', ['@login' => $params['login']], $options);
+      $message['body'][] = t('Domain: @domain', ['@domain' => $params['domain']]);
+      $message['body'][] = t('Country: @country', ['@country' => $params['country']]);
+      $message['body'][] = t('City: @city', ['@city' => $params['city']]);
+      $message['body'][] = t('Phone number: @code @phone', ['@code' => $params['code'], '@phone' => $params['phone']]);
+      break;
+  }
+}
+
+/**
+ * @param array $form_values
+ *   An array of values from the contact form fields that were submitted.
+ */
+function tstest_mail_send($form_values) {
+  $module = 'tstest';
+  $key = 'register_form';
+
+  $to = $form_values['login'] . '@' . $form_values['domain'] . '.bpmonline.com';
+  $from = variable_get('site_mail', ini_get('sendmail_from'));
+
+  $params = $form_values;
+
+  $language = language_default();
+  $send = TRUE;
+
+  $result = drupal_mail($module, $key, $to, $language, $params, $from, $send);
+  if ($result['result'] == TRUE) {
+    drupal_set_message(t('Your register form has been sent.'));
+  }
+  else {
+    drupal_set_message(t('There was a problem with your register send.'), 'error');
+  }
+}

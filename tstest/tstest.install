@@ -1,0 +1,78 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the tstest module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function tstest_schema() {
+  $schema['tstest_register'] = [
+    'description' => 'Register form Terrasoft Demo',
+    'fields' => [
+      'rid' => [
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Primary Key: Unique register category ID.',
+      ],
+      'domain' => [
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Domain name.',
+      ],
+      'login' => [
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Your login.',
+      ],
+      'country' => [
+        'type' => 'varchar',
+        'length' => 4,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Select your Country.',
+      ],
+      'city' => [
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Enter your City.',
+      ],
+      'code' => [
+        'type' => 'varchar',
+        'length' => 10,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Code to indicate country code and phone code operator.',
+      ],
+      'phone' => [
+        'type' => 'varchar',
+        'length' => 15,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Phone number.',
+      ],
+    ],
+    'primary key' => ['rid'],
+    'unique keys' => [
+      'domain' => ['domain'],
+      'login' => ['login'],
+    ],
+  ];
+
+  return $schema;
+}
+
+/**
+ * Modify indexes.
+ */
+function tstest_update_7000() {
+  db_drop_index('tstest_register', 'login');
+}
